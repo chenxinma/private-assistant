@@ -1,4 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import AgUiClient from '../ag-ui/AgUiClient';
+import { 
+  searchEmailTool, 
+  getTodaysEmailSummaryTool, 
+  getUnreadEmailsTool 
+} from '../ag-ui/tools';
 
 const ChatWindow = () => {
   const [messages, setMessages] = useState([
@@ -11,8 +17,23 @@ const ChatWindow = () => {
     }
   ]);
   const [inputValue, setInputValue] = useState('');
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
   const chatContainerRef = useRef(null);
   const textareaRef = useRef(null);
+  const agUiClientRef = useRef(null);
+
+  // 初始化 AG-UI 客户端
+  useEffect(() => {
+    // 创建 AG-UI 客户端实例
+    agUiClientRef.current = new AgUiClient({
+      apiUrl: 'http://localhost:8000' // 这里应该配置实际的后端 API 地址
+    });
+    
+    // 添加邮件相关的工具
+    agUiClientRef.current.addTool(searchEmailTool);
+    agUiClientRef.current.addTool(getTodaysEmailSummaryTool);
+    agUiClientRef.current.addTool(getUnreadEmailsTool);
+  }, []);
 
   // 自动调整文本框高度
   useEffect(() => {
@@ -29,13 +50,56 @@ const ChatWindow = () => {
     }
   }, [messages]);
 
-  const handleSubmit = (e) => {
+  // 处理 AG-UI 事件
+  const handleAgUiEvent = (event) => {
+    console.log('AG-UI Event:', event);
+    
+    switch (event.type) {
+      case 'TEXT_MESSAGE_START':
+        // 开始新的助手消息
+        setMessages(prev => [...prev, {
+          id: event.messageId,
+          sender: 'assistant',
+          text: '',
+          timestamp: new Date()
+        }]);
+        break;
+        
+      case 'TEXT_MESSAGE_CONTENT':
+        // 更新助手消息内容
+        setMessages(prev => {
+          const lastMessage = prev[prev.length - 1];
+          if (lastMessage && lastMessage.id === event.messageId) {
+            return [...prev.slice(0, -1), {
+              ...lastMessage,
+              text: lastMessage.text + event.content
+            }];
+          }
+          return prev;
+        });
+        break;
+        
+      case 'RUN_STARTED':
+        setIsAgentRunning(true);
+        break;
+        
+      case 'RUN_FINISHED':
+      case 'RUN_ERROR':
+        setIsAgentRunning(false);
+        break;
+        
+      default:
+        break;
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (inputValue.trim()) {
+    if (inputValue.trim() && !isAgentRunning) {
       // 添加用户消息
       const userMessage = {
-        id: messages.length + 1,
+        id: Date.now(),
         sender: 'user',
         text: inputValue.trim(),
         timestamp: new Date()
@@ -44,29 +108,24 @@ const ChatWindow = () => {
       setMessages(prev => [...prev, userMessage]);
       setInputValue('');
       
-      // 模拟助手回复
-      setTimeout(() => {
-        const responses = [
-          "我正在查找相关邮件信息，请稍候...",
-          "根据您的邮件内容，我为您整理了以下信息...",
-          "您提到的这个问题，在邮件中有详细说明...",
-          "我已为您汇总了相关邮件的要点..."
-        ];
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-        
-        const assistantMessage = {
-          id: messages.length + 2,
+      try {
+        // 使用 AG-UI 客户端发送消息
+        await agUiClientRef.current.sendMessage(userMessage.text, handleAgUiEvent);
+      } catch (error) {
+        console.error('发送消息失败:', error);
+        // 添加错误消息
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
           sender: 'assistant',
-          text: randomResponse,
+          text: '抱歉，处理您的请求时出现了错误。请稍后重试。',
           timestamp: new Date()
-        };
-        
-        setMessages(prev => [...prev, assistantMessage]);
-      }, 800);
+        }]);
+        setIsAgentRunning(false);
+      }
     }
   };
 
-  const handleSuggestionClick = (actionText) => {
+  const handleSuggestionClick = async (actionText) => {
     let messageText = '';
     
     switch(actionText) {
@@ -87,27 +146,32 @@ const ChatWindow = () => {
         messageText = actionText;
     }
     
-    // 添加用户消息
-    const userMessage = {
-      id: messages.length + 1,
-      sender: 'user',
-      text: messageText,
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    
-    // 模拟助手回复
-    setTimeout(() => {
-      const assistantMessage = {
-        id: messages.length + 2,
-        sender: 'assistant',
-        text: `正在为您${actionText.toLowerCase()}...`,
+    if (!isAgentRunning) {
+      // 添加用户消息
+      const userMessage = {
+        id: Date.now(),
+        sender: 'user',
+        text: messageText,
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, assistantMessage]);
-    }, 600);
+      setMessages(prev => [...prev, userMessage]);
+      
+      try {
+        // 使用 AG-UI 客户端发送消息
+        await agUiClientRef.current.sendMessage(userMessage.text, handleAgUiEvent);
+      } catch (error) {
+        console.error('发送消息失败:', error);
+        // 添加错误消息
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          sender: 'assistant',
+          text: '抱歉，处理您的请求时出现了错误。请稍后重试。',
+          timestamp: new Date()
+        }]);
+        setIsAgentRunning(false);
+      }
+    }
   };
 
   return (
@@ -144,6 +208,7 @@ const ChatWindow = () => {
             type="button"
             className="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center"
             onClick={() => handleSuggestionClick('今日邮件总结')}
+            disabled={isAgentRunning}
           >
             <i className="fa fa-calendar-o mr-1.5 text-primary"></i>
             <span>今日邮件总结</span>
@@ -152,6 +217,7 @@ const ChatWindow = () => {
             type="button"
             className="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center"
             onClick={() => handleSuggestionClick('搜索邮件')}
+            disabled={isAgentRunning}
           >
             <i className="fa fa-search mr-1.5 text-primary"></i>
             <span>搜索邮件</span>
@@ -160,6 +226,7 @@ const ChatWindow = () => {
             type="button"
             className="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center"
             onClick={() => handleSuggestionClick('未读邮件')}
+            disabled={isAgentRunning}
           >
             <i className="fa fa-flag-o mr-1.5 text-primary"></i>
             <span>未读邮件</span>
@@ -168,6 +235,7 @@ const ChatWindow = () => {
             type="button"
             className="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center"
             onClick={() => handleSuggestionClick('选择日期')}
+            disabled={isAgentRunning}
           >
             <i className="fa fa-calendar mr-1.5 text-primary"></i>
             <span>选择日期</span>
@@ -186,13 +254,23 @@ const ChatWindow = () => {
               placeholder="请输入您的问题..." 
               className="w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary resize-none transition-all scrollbar-hide"
               rows="1"
+              disabled={isAgentRunning}
             />
           </div>
           <button 
             type="submit"
-            className="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center transition-colors shadow-lg mt-0.5"
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-lg mt-0.5 ${
+              isAgentRunning 
+                ? 'bg-gray-500 cursor-not-allowed' 
+                : 'bg-primary hover:bg-primary/90'
+            }`}
+            disabled={isAgentRunning}
           >
-            <i className="fa fa-paper-plane-o text-white"></i>
+            {isAgentRunning ? (
+              <i className="fa fa-spinner fa-spin text-white"></i>
+            ) : (
+              <i className="fa fa-paper-plane-o text-white"></i>
+            )}
           </button>
         </form>
       </div>

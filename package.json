@@ -25,6 +25,7 @@
     "vite": "^5.4.6"
   },
   "dependencies": {
+    "@ag-ui/client": "^0.0.37",
     "@tailwindcss/vite": "^4.1.13",
     "electron-squirrel-startup": "^1.0.1",
     "preline": "^3.2.3",
