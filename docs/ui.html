@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>邮件助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5', // 主色调：深紫色
+                        secondary: '#10B981', // 辅助色：绿色
+                        dark: {
+                            100: '#374151',
+                            200: '#1F2937',
+                            300: '#111827',
+                            400: '#030712'
+                        }
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .scrollbar-hide {
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .message-appear {
+                animation: fadeIn 0.3s ease-out forwards;
+            }
+            .suggestion-hover {
+                transition: all 0.2s ease;
+            }
+            .suggestion-hover:hover {
+                transform: translateY(-2px);
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-dark-400 text-gray-200 font-inter h-screen flex flex-col overflow-hidden">
+    <!-- 标题栏 - 模拟Electron窗口控制 -->
+    <header class="bg-dark-300 px-4 py-3 flex items-center justify-between border-b border-dark-100 select-none">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                <i class="fa fa-envelope-o text-white"></i>
+            </div>
+            <h1 class="text-white font-medium">邮件助手</h1>
+        </div>
+        
+        <!-- 窗口控制按钮 -->
+        <div class="flex space-x-2">
+            <button class="w-6 h-6 rounded-full hover:bg-dark-100 flex items-center justify-center transition-colors">
+                <i class="fa fa-window-minimize text-gray-400 text-xs"></i>
+            </button>
+            <button class="w-6 h-6 rounded-full hover:bg-dark-100 flex items-center justify-center transition-colors">
+                <i class="fa fa-window-maximize text-gray-400 text-xs"></i>
+            </button>
+            <button class="w-6 h-6 rounded-full hover:bg-red-600 flex items-center justify-center transition-colors">
+                <i class="fa fa-times text-gray-400 hover:text-white text-xs"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主内容区域 -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+        <!-- 对话历史区域 -->
+        <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+            <!-- 欢迎消息 -->
+            <div class="flex items-start message-appear">
+                <div class="bg-dark-300 rounded-2xl px-4 py-3 max-w-[80%] shadow-md">
+                    <p>您好！我是您的邮件助手。我可以帮助您回答关于邮件内容的问题，或总结指定日期的邮件。</p>
+                    <p class="mt-2 text-sm text-gray-400">您可以直接提问，或使用下方的快捷功能。</p>
+                </div>
+            </div>
+            
+            <!-- 示例对话 - 用户提问 -->
+            <div class="flex items-start justify-end message-appear">
+                <div class="bg-primary/20 rounded-2xl px-4 py-3 max-w-[80%] shadow-md border border-primary/30">
+                    <p>请总结我今天收到的邮件</p>
+                </div>
+            </div>
+            
+            <!-- 示例对话 - 助手回答 -->
+            <div class="flex items-start message-appear">
+                <div class="bg-dark-300 rounded-2xl px-4 py-3 max-w-[80%] shadow-md">
+                    <p class="font-medium text-white">今日（2023年10月15日）邮件总结：</p>
+                    <div class="mt-2 space-y-3">
+                        <div class="p-2 bg-dark-200 rounded-lg">
+                            <p class="text-sm font-medium">来自：市场部 - 张经理</p>
+                            <p class="text-xs text-gray-300 mt-1">主题：下周产品推广会议安排</p>
+                            <p class="text-xs text-gray-400 mt-1">摘要：会议定于下周三上午10点，需准备产品演示材料。</p>
+                        </div>
+                        <div class="p-2 bg-dark-200 rounded-lg">
+                            <p class="text-sm font-medium">来自：技术支持 - 李工</p>
+                            <p class="text-xs text-gray-300 mt-1">主题：关于服务器升级的通知</p>
+                            <p class="text-xs text-gray-400 mt-1">摘要：今晚10点将进行服务器升级，预计停机2小时。</p>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-400">共收到2封邮件，其中1封需要您处理。</p>
+                </div>
+            </div>
+            
+            <!-- 示例对话 - 用户提问 -->
+            <div class="flex items-start justify-end message-appear">
+                <div class="bg-primary/20 rounded-2xl px-4 py-3 max-w-[80%] shadow-md border border-primary/30">
+                    <p>张经理的邮件里提到的会议有哪些人参加？</p>
+                </div>
+            </div>
+            
+            <!-- 示例对话 - 助手回答 -->
+            <div class="flex items-start message-appear">
+                <div class="bg-dark-300 rounded-2xl px-4 py-3 max-w-[80%] shadow-md">
+                    <p>根据张经理的邮件，参加下周产品推广会议的人员包括：</p>
+                    <ul class="list-disc list-inside mt-2 space-y-1 text-sm text-gray-300">
+                        <li>产品部全体成员</li>
+                        <li>市场部团队</li>
+                        <li>销售部代表</li>
+                        <li>技术部负责人</li>
+                    </ul>
+                    <p class="mt-2 text-sm text-gray-400">邮件中提到会发送会议邀请给相关人员。</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 快捷功能建议气泡 -->
+        <div class="px-4 py-3 bg-dark-300 border-t border-dark-100">
+            <p class="text-xs text-gray-500 mb-2">快速功能：</p>
+            <div class="flex flex-wrap gap-2">
+                <button class="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center">
+                    <i class="fa fa-calendar-o mr-1.5 text-primary"></i>
+                    <span>今日邮件总结</span>
+                </button>
+                <button class="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center">
+                    <i class="fa fa-search mr-1.5 text-primary"></i>
+                    <span>搜索邮件</span>
+                </button>
+                <button class="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center">
+                    <i class="fa fa-flag-o mr-1.5 text-primary"></i>
+                    <span>未读邮件</span>
+                </button>
+                <button class="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center">
+                    <i class="fa fa-calendar mr-1.5 text-primary"></i>
+                    <span>选择日期</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 输入区域 -->
+        <div class="p-4 bg-dark-300 border-t border-dark-100">
+            <form id="message-form" class="flex items-end space-x-2">
+                <div class="flex-1 relative">
+                    <textarea 
+                        id="message-input" 
+                        placeholder="请输入您的问题..." 
+                        class="w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary resize-none transition-all"
+                        rows="1"
+                    ></textarea>
+                </div>
+                <button 
+                    type="submit" 
+                    class="w-10 h-10 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center transition-colors shadow-lg"
+                >
+                    <i class="fa fa-paper-plane-o text-white"></i>
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        // 自动调整文本框高度
+        const textarea = document.getElementById('message-input');
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            // 限制最大高度为80px（约4行）
+            this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+        });
+        
+        // 表单提交处理
+        const form = document.getElementById('message-form');
+        const chatContainer = document.getElementById('chat-container');
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const message = textarea.value.trim();
+            
+            if (message) {
+                // 添加用户消息
+                addMessage(message, 'user');
+                
+                // 清空输入框并重置高度
+                textarea.value = '';
+                textarea.style.height = 'auto';
+                
+                // 模拟助手回复
+                setTimeout(() => {
+                    const responses = [
+                        "我正在查找相关邮件信息，请稍候...",
+                        "根据您的邮件内容，我为您整理了以下信息...",
+                        "您提到的这个问题，在邮件中有详细说明...",
+                        "我已为您汇总了相关邮件的要点..."
+                    ];
+                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                    addMessage(randomResponse, 'assistant');
+                }, 800);
+            }
+        });
+        
+        // 添加消息到聊天窗口
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start message-appear';
+            
+            if (sender === 'assistant') {
+                messageDiv.innerHTML = `
+                    <div class="bg-dark-300 rounded-2xl px-4 py-3 max-w-[80%] shadow-md">
+                        <p>${text}</p>
+                    </div>
+                `;
+            } else {
+                messageDiv.className = 'flex items-start justify-end message-appear';
+                messageDiv.innerHTML = `
+                    <div class="bg-primary/20 rounded-2xl px-4 py-3 max-w-[80%] shadow-md border border-primary/30">
+                        <p>${text}</p>
+                    </div>
+                `;
+            }
+            
+            chatContainer.appendChild(messageDiv);
+            // 滚动到底部
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // 快捷功能按钮点击事件
+        const suggestionButtons = document.querySelectorAll('.suggestion-hover');
+        suggestionButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const actionText = this.querySelector('span').textContent;
+                let messageText = '';
+                
+                switch(actionText) {
+                    case '今日邮件总结':
+                        messageText = '请总结我今天收到的邮件';
+                        break;
+                    case '搜索邮件':
+                        messageText = '帮我搜索相关邮件';
+                        break;
+                    case '未读邮件':
+                        messageText = '显示我的未读邮件';
+                        break;
+                    case '选择日期':
+                        const today = new Date().toLocaleDateString('zh-CN');
+                        messageText = `请总结${today}的邮件`;
+                        break;
+                }
+                
+                // 添加用户消息
+                addMessage(messageText, 'user');
+                
+                // 模拟助手回复
+                setTimeout(() => {
+                    addMessage(`正在为您${actionText.toLowerCase()}...`, 'assistant');
+                }, 600);
+            });
+        });
+    </script>
+</body>
+</html>

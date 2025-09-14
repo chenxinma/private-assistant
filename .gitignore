@@ -1,0 +1,8 @@
+.env
+
+dist/
+electron-cache/
+electron-offline-packages/
+node_modules/
+
+yarn.lock

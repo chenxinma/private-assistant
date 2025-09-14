@@ -1,0 +1,74 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Preline UI */
+@source "../../node_modules/preline/dist/*.js";
+@import "../../node_modules/preline/variants.css";
+
+/* Optional Preline UI Datepicker Plugin */
+@import "preline/src/plugins/datepicker/styles.css";
+
+/* Plugins */
+@plugin "@tailwindcss/forms";
+
+@layer utilities {
+  .content-auto {
+    content-visibility: auto;
+  }
+  
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .message-appear {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+  
+  .suggestion-hover {
+    transition: all 0.2s ease;
+  }
+  
+  .suggestion-hover:hover {
+    transform: translateY(-2px);
+  }
+
+  .draggable-header {
+    -webkit-app-region: drag;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@theme {
+  --color-dark-400: #030712;
+  --color-dark-300: #111827;
+  --color-primary: #4F46E5;
+  --color-secondary: #10B981;
+  --color-dark-100: #374151;
+  --color-dark-200: #1F2937;
+}
+
+:root {
+  --primary: #4F46E5;
+  --secondary: #10B981;
+  --dark-100: #374151;
+  --dark-200: #1F2937;
+  --dark-300: #111827;
+  --dark-400: #030712;
+}
