@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import AgUiClient from '../ag-ui/AgUiClient';
+import { HttpAgent } from '@ag-ui/client';
+import { v4 as uuidv4 } from 'uuid';
+import ReactMarkdown from 'react-markdown'
+
 import { 
   searchEmailTool, 
   getTodaysEmailSummaryTool, 
@@ -25,14 +28,11 @@ const ChatWindow = () => {
   // 初始化 AG-UI 客户端
   useEffect(() => {
     // 创建 AG-UI 客户端实例
-    agUiClientRef.current = new AgUiClient({
-      apiUrl: 'http://localhost:8000' // 这里应该配置实际的后端 API 地址
+    agUiClientRef.current = new HttpAgent({
+      url: 'http://localhost:9000', // 这里应该配置实际的后端 API 地址
+      agentId: 'email-agent',
+      threadId: uuidv4(),
     });
-    
-    // 添加邮件相关的工具
-    agUiClientRef.current.addTool(searchEmailTool);
-    agUiClientRef.current.addTool(getTodaysEmailSummaryTool);
-    agUiClientRef.current.addTool(getUnreadEmailsTool);
   }, []);
 
   // 自动调整文本框高度
@@ -51,46 +51,35 @@ const ChatWindow = () => {
   }, [messages]);
 
   // 处理 AG-UI 事件
-  const handleAgUiEvent = (event) => {
-    console.log('AG-UI Event:', event);
-    
-    switch (event.type) {
-      case 'TEXT_MESSAGE_START':
-        // 开始新的助手消息
-        setMessages(prev => [...prev, {
-          id: event.messageId,
-          sender: 'assistant',
-          text: '',
-          timestamp: new Date()
-        }]);
-        break;
-        
-      case 'TEXT_MESSAGE_CONTENT':
-        // 更新助手消息内容
-        setMessages(prev => {
-          const lastMessage = prev[prev.length - 1];
-          if (lastMessage && lastMessage.id === event.messageId) {
-            return [...prev.slice(0, -1), {
-              ...lastMessage,
-              text: lastMessage.text + event.content
-            }];
-          }
-          return prev;
-        });
-        break;
-        
-      case 'RUN_STARTED':
-        setIsAgentRunning(true);
-        break;
-        
-      case 'RUN_FINISHED':
-      case 'RUN_ERROR':
-        setIsAgentRunning(false);
-        break;
-        
-      default:
-        break;
-    }
+  const handleAgUiEvent = {
+    onTextMessageStartEvent: ({event}) => {
+      // 开始新的助手消息
+      setMessages(prev => [...prev, {
+        id: event.messageId,
+        sender: 'assistant',
+        text: '',
+        timestamp: new Date()
+      }]);
+    },
+    onTextMessageContentEvent: ({ event }) => {
+      // 更新助手消息内容
+      setMessages(prev => {
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage && lastMessage.id === event.messageId) {
+          return [...prev.slice(0, -1), {
+            ...lastMessage,
+            text: lastMessage.text + event.delta
+          }];
+        }
+        return prev;
+      });
+    },
+    onRunStartedEvent: () => {
+      setIsAgentRunning(true);
+    },
+    onRunFinishedEvent: ({ result }) => {
+      setIsAgentRunning(false);
+    },
   };
 
   const handleSubmit = async (e) => {
@@ -99,18 +88,24 @@ const ChatWindow = () => {
     if (inputValue.trim() && !isAgentRunning) {
       // 添加用户消息
       const userMessage = {
-        id: Date.now(),
+        id: Date.now().toString(),
         sender: 'user',
         text: inputValue.trim(),
         timestamp: new Date()
       };
+
+      agUiClientRef.current.messages.push({
+        id: userMessage.id,
+        role: "user",
+        content: userMessage.text,
+      });
       
       setMessages(prev => [...prev, userMessage]);
       setInputValue('');
       
       try {
         // 使用 AG-UI 客户端发送消息
-        await agUiClientRef.current.sendMessage(userMessage.text, handleAgUiEvent);
+        await agUiClientRef.current.runAgent({}, handleAgUiEvent);
       } catch (error) {
         console.error('发送消息失败:', error);
         // 添加错误消息
@@ -135,9 +130,6 @@ const ChatWindow = () => {
       case '搜索邮件':
         messageText = '帮我搜索相关邮件';
         break;
-      case '未读邮件':
-        messageText = '显示我的未读邮件';
-        break;
       case '选择日期':
         const today = new Date().toLocaleDateString('zh-CN');
         messageText = `请总结${today}的邮件`;
@@ -149,22 +141,27 @@ const ChatWindow = () => {
     if (!isAgentRunning) {
       // 添加用户消息
       const userMessage = {
-        id: Date.now(),
+        id: Date.now().toString(),
         sender: 'user',
         text: messageText,
         timestamp: new Date()
       };
-      
+
+      agUiClientRef.current.messages.push({
+        id: userMessage.id,
+        role: "user",
+        content: messageText,
+      });
       setMessages(prev => [...prev, userMessage]);
       
       try {
         // 使用 AG-UI 客户端发送消息
-        await agUiClientRef.current.sendMessage(userMessage.text, handleAgUiEvent);
+        await agUiClientRef.current.runAgent({}, handleAgUiEvent);
       } catch (error) {
         console.error('发送消息失败:', error);
         // 添加错误消息
         setMessages(prev => [...prev, {
-          id: Date.now() + 1,
+          id: (Date.now() + 1).toString(),
           sender: 'assistant',
           text: '抱歉，处理您的请求时出现了错误。请稍后重试。',
           timestamp: new Date()
@@ -188,7 +185,27 @@ const ChatWindow = () => {
           >
             {message.sender === 'assistant' ? (
               <div className="bg-dark-300 rounded-2xl px-4 py-3 max-w-[80%] shadow-md">
-                <p>{message.text}</p>
+                <ReactMarkdown
+                    components={{
+                        code({node, inline, className, children, ...props}) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={materialLight}
+                              language={match[1]}
+                              PreTag="div"
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          );
+                        }
+                      }}>{message.text}
+                </ReactMarkdown>
                 {message.hint && <p className="mt-2 text-sm text-gray-400">{message.hint}</p>}
               </div>
             ) : (
@@ -225,15 +242,6 @@ const ChatWindow = () => {
           <button 
             type="button"
             className="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center"
-            onClick={() => handleSuggestionClick('未读邮件')}
-            disabled={isAgentRunning}
-          >
-            <i className="fa fa-flag-o mr-1.5 text-primary"></i>
-            <span>未读邮件</span>
-          </button>
-          <button 
-            type="button"
-            className="suggestion-hover bg-dark-200 hover:bg-dark-100 text-sm px-3 py-1.5 rounded-full flex items-center"
             onClick={() => handleSuggestionClick('选择日期')}
             disabled={isAgentRunning}
           >
@@ -251,7 +259,13 @@ const ChatWindow = () => {
               ref={textareaRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="请输入您的问题..." 
+              onKeyDown={(e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+              placeholder="请输入您的问题... (Ctrl+Enter 快速发送)"
               className="w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary resize-none transition-all scrollbar-hide"
               rows="1"
               disabled={isAgentRunning}
