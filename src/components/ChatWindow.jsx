@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { HttpAgent } from '@ag-ui/client';
 import { v4 as uuidv4 } from 'uuid';
-import ReactMarkdown from 'react-markdown'
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { 
   searchEmailTool, 
@@ -128,12 +129,15 @@ const ChatWindow = () => {
         messageText = '请总结我今天收到的邮件';
         break;
       case '搜索邮件':
-        messageText = '帮我搜索相关邮件';
-        break;
+        messageText = "帮我搜索相关邮件";
+        // 对于搜索邮件功能，只将文本写入输入框，不直接提交
+        setInputValue(messageText);
+        return;
       case '选择日期':
-        const today = new Date().toLocaleDateString('zh-CN');
-        messageText = `请总结${today}的邮件`;
-        break;
+        messageText = `请总结${new Date().toLocaleDateString('zh-CN')}的邮件`;
+        // 对于选择日期功能，只将文本写入输入框，不直接提交
+        setInputValue(messageText);
+        return;
       default:
         messageText = actionText;
     }
@@ -185,27 +189,13 @@ const ChatWindow = () => {
           >
             {message.sender === 'assistant' ? (
               <div className="bg-dark-300 rounded-2xl px-4 py-3 max-w-[80%] shadow-md">
-                <ReactMarkdown
-                    components={{
-                        code({node, inline, className, children, ...props}) {
-                          const match = /language-(\w+)/.exec(className || '');
-                          return !inline && match ? (
-                            <SyntaxHighlighter
-                              style={materialLight}
-                              language={match[1]}
-                              PreTag="div"
-                              {...props}
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
-                          ) : (
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          );
-                        }
-                      }}>{message.text}
-                </ReactMarkdown>
+                <Markdown 
+                 components={{
+                    h1: ({ node, ...props }) => <h1 className="custom-heading-1" {...props} />,
+                    h2: ({ node, ...props }) => <h2 className="custom-heading-2" {...props} />,
+                    p: ({ node, ...props }) => <p className="custom-paragraph" {...props} />,
+                  }}
+                remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
                 {message.hint && <p className="mt-2 text-sm text-gray-400">{message.hint}</p>}
               </div>
             ) : (

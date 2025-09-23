@@ -65,6 +65,34 @@
   .focus:ring-offset-hs-soft-color-secondary-label {
     --tw-ring-offset-color: rgba(16, 185, 129, 0.9);
   }
+
+  .custom-heading-1 {
+    font-size: 1.2rem;
+    color: #fff;
+    margin-bottom: 1rem;
+  }
+
+  .custom-heading-2 {
+    font-size: 1rem;
+    color: #eee;
+    margin-bottom: 0.8rem;
+  }
+
+  .custom-paragraph {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #ccc;
+    margin-bottom: 0.6rem;
+  }
+
+  ul, ol {
+    margin-left: 1.5rem;
+    margin-bottom: 1.2rem;
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+  }
 }
 
 @theme {
